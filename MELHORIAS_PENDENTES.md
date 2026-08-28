@@ -38,3 +38,4 @@ Backlog permanente do painel de gestão familiar do cartão BV. O painel é uma 
 ## Regra financeira que deve ser preservada
 
 O valor que cada pessoa realmente confirmou pagar no mês é o valor usado no total mensal. A compra continua guardando seu valor original e sua parcela, mas qualquer acordo ou redução deve refletir imediatamente no quadrante da pessoa e no SOMA TUDO. Quando a pessoa deveria pagar para Rosa e paga menos, a diferença deve aparecer como valor coberto por Rosa, sem apagar a responsabilidade original.
+

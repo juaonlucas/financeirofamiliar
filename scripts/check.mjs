@@ -13,3 +13,4 @@ for (const id of ["kpis", "peopleGrid", "purchaseRows", "variationRows", "profil
   if (!html.includes(`id="${id}"`)) throw new Error(`Elemento obrigatório ausente: ${id}`);
 }
 console.log("Lint e verificações estruturais concluídos.");
+

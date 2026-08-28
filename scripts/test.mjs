@@ -30,3 +30,4 @@ const varied = ownerTotals();
 close(varied.Kauany.pending, tv.amount - 50, "Pendência da Kauany");
 close(varied.Rosa.covers, tv.amount - 50, "Cobertura automática da Rosa");
 console.log("Testes financeiros e de reconciliação concluídos.");
+

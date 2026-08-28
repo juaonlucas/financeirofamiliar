@@ -7,3 +7,4 @@ for (const file of ["index.html", "styles.css", "enhancements.css", "app.js", "e
   cpSync(file, `${output}/${file}`);
 }
 console.log("Build de produção criado em dist/.");
+
