@@ -11,9 +11,19 @@ Painel local para conferência, rateio e comunicação da fatura familiar do car
 - filtro de lançamentos sem dono;
 - demonstrativos, histórico de faturas e importação local de PDF;
 - imagem 1080 × 1350 para compartilhamento;
-- exportação e importação dos dados locais em JSON.
+- exportação e importação dos dados locais em JSON;
+- memória opcional entre celular e computador, com salvamento automático pelo domínio.
 
-Os dados editados e os PDFs são mantidos no navegador do dispositivo. O projeto não envia essas informações para um servidor.
+Sem a memória conectada, os dados continuam funcionando somente no navegador. Com a memória conectada, compras, responsáveis, valores, acordos, perfis, faturas cadastradas e exclusões são sincronizados. Os arquivos PDF continuam locais em cada aparelho.
+
+## Configuração da memória no Vercel
+
+1. No projeto, abra **Storage**, crie um **Blob** e conecte-o ao projeto. Isso adiciona `BLOB_READ_WRITE_TOKEN` automaticamente.
+2. Em **Settings → Environment Variables**, crie `PANEL_SYNC_SECRET` com uma chave de acesso escolhida por João Lucas.
+3. Faça um novo deploy.
+4. No painel, abra **☁ Memória** e use a mesma chave no celular e no computador.
+
+Nunca coloque os valores reais dessas variáveis no repositório.
 
 ## Verificação
 
