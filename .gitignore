@@ -1,8 +1,9 @@
 node_modules/
 dist/
 .vercel/
-.env
-.env.*
+.vercel-cli/
+.pnpm-store/
+.env*
 !.env.example
 *.log
 
