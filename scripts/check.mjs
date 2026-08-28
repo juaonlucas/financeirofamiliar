@@ -12,7 +12,7 @@ for (const asset of ["styles.css", "enhancements.css", "app.js", "enhancements.j
 for (const id of ["kpis", "peopleGrid", "purchaseRows", "variationRows", "profileDialog", "profileProjection", "profileEnding", "profileShareImage", "shareDialog", "cloudMemoryDialog"]) {
   if (!html.includes(`id="${id}"`)) throw new Error(`Elemento obrigatório ausente: ${id}`);
 }
-for (const photo of ["rosa.png", "aianny.png", "evane.png", "joao-lucas.png", "ju-wellington.png", "kauany.png"]) {
+for (const photo of ["rosa.png", "wedja.png", "aianny.png", "evane.png", "joao-lucas.png", "ju-wellington.png", "kauany.png"]) {
   if (!existsSync(`assets/rostos/${photo}`)) throw new Error(`Foto de perfil ausente: ${photo}`);
 }
 console.log("Lint e verificações estruturais concluídos.");
