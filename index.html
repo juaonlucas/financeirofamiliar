@@ -126,7 +126,15 @@
       <label>Descrição da compra<input id="editNote" placeholder="Ex.: vitamina, televisão, combustível"></label>
       <div class="two-col"><label>Valor atribuído<input id="editAmount" type="number" step="0.01"></label><label>Pagará neste mês<input id="editDueNow" type="number" step="0.01"></label></div>
       <div class="two-col"><label>Paga para<input id="editPayTo" placeholder="Ex.: Rosa"></label><label>Observação da variação<input id="editVariationNote" placeholder="Ex.: pagará R$ 50 neste mês"></label></div>
-      <label>Divisão especial <small>Uma linha: NOME = VALOR = PAGA NO MÊS = PAGA PARA = OBSERVAÇÃO</small><textarea id="editShares" rows="4" placeholder="AIANNY = 113,33 = 80,00 = ROSA = restante no próximo mês"></textarea></label>
+      <fieldset class="participant-fieldset">
+        <legend>Participantes da compra <small>Escolha até 3 pessoas; o valor será dividido automaticamente.</small></legend>
+        <div id="participantRows" class="participant-rows"></div>
+        <div class="participant-summary" id="participantSummary">Sem divisão: o responsável principal assume o valor integral.</div>
+      </fieldset>
+      <details class="advanced-share-editor">
+        <summary>Ajustar valores individuais</summary>
+        <label>Uma linha por pessoa <small>NOME = VALOR = PAGA NO MÊS = PAGA PARA = OBSERVAÇÃO</small><textarea id="editShares" rows="4" placeholder="AIANNY = 113,33 = 80,00 = ROSA = restante no próximo mês"></textarea></label>
+      </details>
       <div class="two-col"><label>Cobrar de<input id="editAgreementPerson" placeholder="Ex.: Leandro"></label><label>Quanto cobrar<input id="editAgreementAmount" type="number" step="0.01"></label></div>
       <label>Observação do acordo<input id="editAgreementNote" placeholder="Ex.: metade do material de construção"></label>
       <div class="dialog-actions"><button type="button" id="deleteTransaction" class="danger-button">Excluir lançamento</button><span class="dialog-spacer"></span><button value="cancel" class="ghost">Cancelar</button><button value="default" id="saveEdit" class="primary">Salvar alteração</button></div>
