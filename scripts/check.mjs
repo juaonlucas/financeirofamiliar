@@ -9,7 +9,7 @@ const html = readFileSync("index.html", "utf8");
 for (const asset of ["styles.css", "enhancements.css", "app.js", "enhancements.js", "cloud-sync.js"]) {
   if (!html.includes(asset)) throw new Error(`Referência ausente no HTML: ${asset}`);
 }
-for (const id of ["kpis", "peopleGrid", "purchaseRows", "variationRows", "profileDialog", "shareDialog", "cloudMemoryDialog"]) {
+for (const id of ["kpis", "peopleGrid", "purchaseRows", "variationRows", "profileDialog", "profileProjection", "profileEnding", "profileShareImage", "shareDialog", "cloudMemoryDialog"]) {
   if (!html.includes(`id="${id}"`)) throw new Error(`Elemento obrigatório ausente: ${id}`);
 }
 console.log("Lint e verificações estruturais concluídos.");

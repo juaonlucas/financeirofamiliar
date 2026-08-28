@@ -153,7 +153,7 @@
 
   <dialog id="profileDialog" class="profile-dialog">
     <div class="profile-dialog-body">
-      <div class="dialog-head"><div><p class="eyebrow">PERFIL FINANCEIRO</p><h2 id="profileTitle">Pessoa</h2></div><button class="icon-btn" id="closeProfileDialog" aria-label="Fechar">×</button></div>
+      <div class="dialog-head profile-dialog-head"><div class="profile-title-group"><div id="profileHeroAvatar"></div><div><p class="eyebrow">PERFIL FINANCEIRO</p><h2 id="profileTitle">Pessoa</h2></div></div><button class="icon-btn" id="closeProfileDialog" aria-label="Fechar">×</button></div>
       <div class="profile-editor">
         <label>Nome<input id="profileName"></label>
         <label>Identificação<select id="profileGender"><option value="female">Mulher</option><option value="male">Homem</option><option value="couple">Casal</option><option value="person">Pessoa</option></select></label>
@@ -162,8 +162,12 @@
         <button class="primary" id="saveProfile">Salvar perfil</button>
       </div>
       <div id="profileSummary" class="profile-summary"></div>
+      <div class="profile-insights">
+        <section class="profile-panel"><div class="panel-heading"><div><p class="eyebrow">PROJEÇÃO</p><h3>Estimativa dos próximos 3 meses</h3></div><small>Somente parcelas já conhecidas</small></div><div id="profileProjection" class="projection-chart"></div></section>
+        <section class="profile-panel"><div class="panel-heading"><div><p class="eyebrow">SAINDO DA FATURA</p><h3>Últimas parcelas e compras do mês</h3></div></div><div id="profileEnding" class="ending-list"></div></section>
+      </div>
       <div id="profilePurchases" class="profile-purchases"></div>
-      <div class="message-box"><div><h3>Mensagem para enviar</h3><button class="ghost" id="copyProfileMessage">Copiar mensagem</button></div><textarea id="profileMessage" rows="12" readonly></textarea></div>
+      <div class="message-box"><div><h3>Mensagem para enviar</h3><div class="message-actions"><button class="ghost" id="profileShareImage">Gerar imagem do perfil</button><button class="ghost" id="copyProfileMessage">Copiar mensagem</button></div></div><textarea id="profileMessage" rows="12" readonly></textarea></div>
     </div>
   </dialog>
 

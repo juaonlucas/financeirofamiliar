@@ -13,6 +13,8 @@ Painel local para conferência, rateio e comunicação da fatura familiar do car
 - imagem 1080 × 1350 para compartilhamento;
 - exportação e importação dos dados locais em JSON;
 - memória opcional entre celular e computador, com salvamento automático pelo domínio.
+- perfis com projeção de três meses, compras encerrando, imagem individual e avatar;
+- conferência individual por responsável e quadrante de compras sem dono.
 
 Qualquer pessoa que abrir o endereço público carrega automaticamente os dados sincronizados em modo de visualização, sem login ou chave. A chave é usada somente nos aparelhos autorizados a publicar alterações. Compras, responsáveis, valores, acordos, perfis, faturas cadastradas e exclusões são sincronizados; os arquivos PDF continuam locais em cada aparelho.
 
