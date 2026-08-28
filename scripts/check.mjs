@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 
 for (const file of ["app.js", "enhancements.js", "cloud-sync.js", "api/state.js"]) {
   execFileSync(process.execPath, ["--check", file], { stdio: "inherit" });
@@ -11,6 +11,9 @@ for (const asset of ["styles.css", "enhancements.css", "app.js", "enhancements.j
 }
 for (const id of ["kpis", "peopleGrid", "purchaseRows", "variationRows", "profileDialog", "profileProjection", "profileEnding", "profileShareImage", "shareDialog", "cloudMemoryDialog"]) {
   if (!html.includes(`id="${id}"`)) throw new Error(`Elemento obrigatório ausente: ${id}`);
+}
+for (const photo of ["rosa.png", "aianny.png", "evane.png", "joao-lucas.png", "ju-wellington.png", "kauany.png"]) {
+  if (!existsSync(`assets/rostos/${photo}`)) throw new Error(`Foto de perfil ausente: ${photo}`);
 }
 console.log("Lint e verificações estruturais concluídos.");
 
