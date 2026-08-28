@@ -4,7 +4,7 @@ let applyingCloudState = false;
 
 function cloudKey() { return localStorage.getItem(CLOUD_KEY_STORAGE) || ""; }
 function cloudStatePayload() {
-  return { version: 1, owners: [...OWNERS], transactions, deletedTransactions: deletedTransactions(), invoices, profiles, updatedAt: new Date().toISOString() };
+  return { version: 2, owners: [...OWNERS], transactions, deletedTransactions: deletedTransactions(), invoices, profiles, updatedAt: new Date().toISOString() };
 }
 function setCloudStatus(message, type = "") {
   const status = document.querySelector("#syncStatus");
@@ -13,10 +13,15 @@ function setCloudStatus(message, type = "") {
   detail.textContent = message;
   detail.className = `memory-state ${type}`.trim();
 }
+function setReadOnly(readOnly) {
+  document.body.classList.toggle("cloud-readonly", readOnly);
+  document.querySelectorAll("[data-edit],[data-add-owner],[data-save-var]").forEach(button => { button.hidden = readOnly; });
+}
 async function cloudRequest(method, body) {
+  const key = cloudKey();
   const response = await fetch("/api/state", {
     method,
-    headers: { "x-panel-key": cloudKey(), ...(body ? { "content-type": "application/json" } : {}) },
+    headers: { ...(key ? { "x-panel-key": key } : {}), ...(body ? { "content-type": "application/json" } : {}) },
     body: body ? JSON.stringify(body) : undefined,
   });
   const data = await response.json().catch(() => ({}));
@@ -26,9 +31,9 @@ async function cloudRequest(method, body) {
 async function saveCloudState() {
   if (!cloudKey() || applyingCloudState) return;
   try {
-    setCloudStatus("salvando na nuvem…");
+    setCloudStatus("salvando para todos…");
     const result = await cloudRequest("PUT", cloudStatePayload());
-    setCloudStatus(`sincronizado às ${new Date(result.updatedAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}`, "ok");
+    setCloudStatus(`edição sincronizada às ${new Date(result.updatedAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}`, "ok");
   } catch (error) { setCloudStatus(`não sincronizado: ${error.message}`, "error"); }
 }
 function scheduleCloudSave() {
@@ -51,29 +56,53 @@ function applyCloudState(state) {
   refreshOwnerSelects();
   render();
   applyingCloudState = false;
+  setReadOnly(!cloudKey());
+}
+async function loadPublicMemory() {
+  try {
+    setCloudStatus("carregando dados atualizados…");
+    const result = await cloudRequest("GET");
+    if (result.exists) applyCloudState(result.state);
+    setReadOnly(!cloudKey());
+    if (result.exists) setCloudStatus(cloudKey() ? "edição sincronizada" : "visualização sincronizada", "ok");
+    else setCloudStatus(cloudKey() ? "memória pronta para o primeiro salvamento" : "visualização pública · aguardando primeiro salvamento", "ok");
+    return result;
+  } catch (error) {
+    setReadOnly(!cloudKey());
+    setCloudStatus(`dados locais: ${error.message}`, "error");
+    return null;
+  }
 }
 async function connectCloudMemory() {
   const entered = document.querySelector("#cloudMemoryKey").value.trim();
-  if (!entered) return setCloudStatus("Digite a chave de acesso.", "error");
+  if (!entered) return setCloudStatus("Digite a chave de edição.", "error");
   localStorage.setItem(CLOUD_KEY_STORAGE, entered);
   try {
-    setCloudStatus("conectando…");
-    const result = await cloudRequest("GET");
-    if (result.exists) {
-      if (!confirm("Carregar neste aparelho os dados mais recentes salvos na nuvem? Os dados locais atuais serão substituídos.")) return setCloudStatus("conexão mantida; carregamento cancelado");
-      applyCloudState(result.state);
-      setCloudStatus("memória conectada e dados atualizados", "ok");
+    setCloudStatus("validando acesso de edição…");
+    await cloudRequest("POST");
+    const remote = await cloudRequest("GET");
+    if (remote.exists) {
+      const publishLocal = confirm("Já existem dados sincronizados.\n\nOK: publicar para todos os dados deste aparelho.\nCancelar: carregar neste aparelho os dados já publicados.");
+      if (publishLocal) await saveCloudState();
+      else applyCloudState(remote.state);
     } else {
       await saveCloudState();
-      setCloudStatus("memória criada com os dados deste aparelho", "ok");
     }
+    setReadOnly(false);
+    setCloudStatus("edição sincronizada neste aparelho", "ok");
     document.querySelector("#cloudMemoryDialog").close();
-  } catch (error) { localStorage.removeItem(CLOUD_KEY_STORAGE); setCloudStatus(error.message, "error"); }
+  } catch (error) {
+    localStorage.removeItem(CLOUD_KEY_STORAGE);
+    setReadOnly(true);
+    setCloudStatus(error.message, "error");
+  }
 }
 function disconnectCloudMemory() {
   localStorage.removeItem(CLOUD_KEY_STORAGE);
   document.querySelector("#cloudMemoryKey").value = "";
-  setCloudStatus("dados locais; aparelho desconectado");
+  setReadOnly(true);
+  setCloudStatus("visualização sincronizada · edição desconectada", "ok");
+  loadPublicMemory();
 }
 
 const localPersist = persist;
@@ -84,11 +113,6 @@ document.querySelector("#cloudMemoryBtn").onclick = () => {
 };
 document.querySelector("#connectCloudMemory").onclick = connectCloudMemory;
 document.querySelector("#disconnectCloudMemory").onclick = disconnectCloudMemory;
-if (cloudKey()) {
-  setCloudStatus("memória conectada; buscando atualização…");
-  cloudRequest("GET").then(result => {
-    if (result.exists) applyCloudState(result.state);
-    setCloudStatus(result.exists ? "sincronizado com a nuvem" : "memória conectada; aguardando primeiro salvamento", "ok");
-  }).catch(error => setCloudStatus(`dados locais: ${error.message}`, "error"));
-}
+setReadOnly(!cloudKey());
+loadPublicMemory();
 

@@ -17,10 +17,9 @@ function send(response, status, body) {
 }
 
 export default async function handler(request, response) {
-  if (!process.env.BLOB_READ_WRITE_TOKEN || !process.env.PANEL_SYNC_SECRET) {
+  if (!process.env.BLOB_READ_WRITE_TOKEN) {
     return send(response, 503, { error: "Memória do painel ainda não configurada." });
   }
-  if (!authorized(request)) return send(response, 401, { error: "Chave de acesso inválida." });
 
   if (request.method === "GET") {
     const result = await get(PATHNAME, { access: "private" });
@@ -29,7 +28,15 @@ export default async function handler(request, response) {
     return send(response, 200, { exists: true, state });
   }
 
+  if (request.method === "POST") {
+    if (!process.env.PANEL_SYNC_SECRET) return send(response, 503, { error: "Edição sincronizada ainda não configurada." });
+    if (!authorized(request)) return send(response, 401, { error: "Chave de acesso inválida." });
+    return send(response, 200, { authorized: true });
+  }
+
   if (request.method === "PUT") {
+    if (!process.env.PANEL_SYNC_SECRET) return send(response, 503, { error: "Edição sincronizada ainda não configurada." });
+    if (!authorized(request)) return send(response, 401, { error: "Chave de acesso inválida." });
     const raw = typeof request.body === "string" ? request.body : JSON.stringify(request.body || {});
     if (raw.length > 1_500_000) return send(response, 413, { error: "Dados acima do limite permitido." });
     let state;
@@ -48,7 +55,7 @@ export default async function handler(request, response) {
     return send(response, 200, { saved: true, updatedAt: state.updatedAt });
   }
 
-  response.setHeader("Allow", "GET, PUT");
+  response.setHeader("Allow", "GET, POST, PUT");
   return send(response, 405, { error: "Método não permitido." });
 }
 
