@@ -23,7 +23,7 @@ function effectivePayment(owner,totals=ownerTotals()){const x=totals[owner];retu
 function sumAllPayments(totals=ownerTotals()){return OWNERS.reduce((sum,owner)=>sum+effectivePayment(owner,totals),0)}
 function switchTab(name){document.querySelectorAll(".tab,.view").forEach(x=>x.classList.remove("active"));document.querySelector(`.tab[data-tab="${name}"]`)?.classList.add("active");document.querySelector(`#${name}`)?.classList.add("active");if(name==="demonstrativos")setTimeout(renderAnalytics,20)}
 
-render=function(){renderKpis();renderPeople();renderRows();renderAgreements();renderVariationRows();renderAnalytics();renderInvoices();bindActionButtons()};
+render=function(){updateActivePeriodLabels();renderKpis();renderPeople();renderRows();renderAgreements();renderVariationRows();renderAnalytics();renderInvoices();bindActionButtons()};
 renderKpis=function(){const totals=ownerTotals(),identified=transactions.filter(x=>allocations(x).length).reduce((s,x)=>s+x.amount,0),unknownTransactions=transactions.filter(x=>!allocations(x).length),unknown=unknownTransactions.reduce((s,x)=>s+x.amount,0),launches=transactions.reduce((s,x)=>s+x.amount,0),final=7289.55,sumAll=sumAllPayments(totals);document.querySelector("#kpis").innerHTML=`
   <article class="kpi"><span>VALOR DA FATURA</span><strong>${money(final)}</strong><small>Após o crédito anterior</small></article>
   <article class="kpi sum-card"><span>SOMA TUDO · ESTE MÊS</span><strong>${money(sumAll)}</strong><small>Soma dos valores efetivos dos quadrantes</small></article>
@@ -98,7 +98,7 @@ function saveReceived(owner,value){profiles[owner]={...profiles[owner],received:
 function saveCoverage(owner,value){profiles[owner]={...profiles[owner],coveredBy:value};localStorage.setItem(PROFILE_STORAGE,JSON.stringify(profiles));persist();render()}
 
 renderKpis=function(){const totals=ownerTotals(),balance=paymentBalance(totals),unknownTransactions=transactions.filter(x=>!allocations(x).length),unknown=unknownTransactions.reduce((s,x)=>s+num(x.amount),0),final=invoices.filter(i=>i.status==="Classificada").at(-1)?.total||invoices.at(-1)?.total||7289.55;document.querySelector("#kpis").innerHTML=`
-  <article class="kpi"><span>TOTAL DA FATURA</span><strong>${money(final)}</strong><small>Valor oficial cobrado pelo cartão BV no mês.</small></article>
+  <article class="kpi"><span>TOTAL DA FATURA</span><strong>${money(activeInvoice()?.total||final)}</strong><small>Valor oficial da fatura que está em evidência.</small></article>
   <article class="kpi sum-card"><span>TOTAL PREVISTO</span><strong>${money(balance.expected)}</strong><small>Soma do que cada pessoa ficou de pagar neste mês.</small></article>
   <article class="kpi received-card"><span>TOTAL RECEBIDO</span><strong>${money(balance.received+balance.covered)}</strong><small>Dinheiro entregue pelas pessoas, incluindo coberturas registradas.</small></article>
   <article class="kpi missing-card ${balance.uncovered?"warn":"ok"}"><span>FALTA COBRIR</span><strong>${money(balance.uncovered)}</strong><small>Diferença que ainda não tem ninguém confirmado para completar.</small></article>

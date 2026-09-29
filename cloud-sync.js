@@ -4,7 +4,7 @@ let applyingCloudState = false;
 
 function cloudKey() { return localStorage.getItem(CLOUD_KEY_STORAGE) || ""; }
 function cloudStatePayload() {
-  return { version: 2, owners: [...OWNERS], transactions, deletedTransactions: deletedTransactions(), invoices, profiles, updatedAt: new Date().toISOString() };
+  return { version: 3, owners: [...OWNERS], transactions, activeInvoiceId, deletedTransactions: deletedTransactions(), invoices, profiles, updatedAt: new Date().toISOString() };
 }
 function setCloudStatus(message, type = "") {
   const status = document.querySelector("#syncStatus");
@@ -43,26 +43,45 @@ function scheduleCloudSave() {
 }
 function applyCloudState(state) {
   applyingCloudState = true;
+  const needsOctoberMigration = !state.activeInvoiceId && Array.isArray(state.transactions) && state.transactions.length > 60 && state.invoices?.some(invoice => invoice.month === "Outubro" && Number(invoice.year) === 2026 && !Array.isArray(invoice.transactions));
   transactions = structuredClone(state.transactions);
   if (Array.isArray(state.invoices)) invoices = structuredClone(state.invoices);
+  if (state.activeInvoiceId) activeInvoiceId = state.activeInvoiceId;
   if (Array.isArray(state.owners) && state.owners.length) OWNERS.splice(0, OWNERS.length, ...state.owners);
   if (state.profiles && typeof state.profiles === "object") profiles = structuredClone(state.profiles);
+  if (needsOctoberMigration) {
+    const october = invoices.find(invoice => invoice.month === "Outubro" && Number(invoice.year) === 2026);
+    const september = invoices.find(invoice => invoice.month === "Setembro" && Number(invoice.year) === 2026);
+    const octoberTransactions = transactions.slice(-60).map(tx => ({ ...tx, invoiceId: october.id }));
+    const septemberTransactions = transactions.slice(0, -60).map(tx => ({ ...tx, invoiceId: september?.id || "setembro-2026" }));
+    if (september) {
+      september.transactions = structuredClone(septemberTransactions);
+      september.settlementState = Object.fromEntries(OWNERS.map(owner => [owner, { received: profiles[owner]?.received, coveredBy: profiles[owner]?.coveredBy, verified: profiles[owner]?.verified, verifiedAt: profiles[owner]?.verifiedAt }]));
+    }
+    october.transactions = structuredClone(octoberTransactions);
+    transactions = octoberTransactions;
+    activeInvoiceId = october.id;
+    resetMonthlyProfileState();
+  }
   localStorage.setItem(OWNER_STORAGE, JSON.stringify(OWNERS));
   localStorage.setItem(PROFILE_STORAGE, JSON.stringify(profiles));
   localStorage.setItem(DELETED_STORAGE, JSON.stringify(state.deletedTransactions || []));
   OWNERS.forEach(owner => { if (profiles[owner]?.color) COLORS[owner] = profiles[owner].color; });
   localPersist();
   persistInvoices();
+  persistActiveInvoice();
   refreshOwnerSelects();
   render();
   applyingCloudState = false;
   setReadOnly(!cloudKey());
+  return needsOctoberMigration;
 }
 async function loadPublicMemory() {
   try {
     setCloudStatus("carregando dados atualizados…");
     const result = await cloudRequest("GET");
-    if (result.exists) applyCloudState(result.state);
+    const migrated = result.exists ? applyCloudState(result.state) : false;
+    if (migrated && cloudKey()) await saveCloudState();
     setReadOnly(!cloudKey());
     if (result.exists) setCloudStatus(cloudKey() ? "edição sincronizada" : "visualização sincronizada", "ok");
     else setCloudStatus(cloudKey() ? "memória pronta para o primeiro salvamento" : "visualização pública · aguardando primeiro salvamento", "ok");
@@ -115,4 +134,3 @@ document.querySelector("#connectCloudMemory").onclick = connectCloudMemory;
 document.querySelector("#disconnectCloudMemory").onclick = disconnectCloudMemory;
 setReadOnly(!cloudKey());
 loadPublicMemory();
-
