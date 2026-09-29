@@ -38,7 +38,7 @@
       <div class="kpi-grid" id="kpis"></div>
       <div class="section-heading">
         <div><p class="eyebrow">QUEM PAGA</p><h2>Valores por responsável</h2></div>
-        <p>O valor grande é o pagamento confirmado do mês. A responsabilidade original, as pendências e os reembolsos permanecem detalhados em cada cartão.</p>
+        <div class="section-heading-actions"><p>O valor grande é o pagamento confirmado do mês. A responsabilidade original, as pendências e os reembolsos permanecem detalhados em cada cartão.</p><button class="primary" id="newProfileBtn">+ Novo perfil</button></div>
       </div>
       <div class="people-grid" id="peopleGrid"></div>
     </section>
@@ -103,13 +103,18 @@
       </div>
       <div class="upload-layout">
         <form id="invoiceUploadForm" class="upload-card">
-          <label class="drop-zone" for="invoicePdf"><strong>Selecione ou arraste a fatura em PDF</strong><span>Nenhum arquivo será enviado para a internet.</span><input id="invoicePdf" type="file" accept="application/pdf" required></label>
+          <label class="drop-zone" for="invoicePdf"><strong>Selecione ou arraste a fatura em PDF</strong><span>O documento será lido neste aparelho e você revisará tudo antes de importar.</span><input id="invoicePdf" type="file" accept="application/pdf" required></label>
           <div id="selectedPdf" class="selected-file">Nenhum PDF selecionado</div>
           <div class="three-col"><label>Mês<select id="invoiceMonth" required><option value="">Selecione</option><option>Janeiro</option><option>Fevereiro</option><option>Março</option><option>Abril</option><option>Maio</option><option>Junho</option><option>Julho</option><option>Agosto</option><option>Setembro</option><option>Outubro</option><option>Novembro</option><option>Dezembro</option></select></label><label>Ano<input id="invoiceYear" type="number" min="2020" max="2100" value="2026" required></label><label>Valor oficial<input id="invoiceTotal" type="number" step="0.01" min="0" placeholder="0,00" required></label></div>
           <button class="primary" type="submit">Guardar fatura no painel</button>
         </form>
-        <aside class="info-card upload-help"><h3>Fluxo das próximas faturas</h3><ol><li>Guarde o PDF nesta aba.</li><li>Inclua ou importe os lançamentos na aba Compras.</li><li>Classifique responsáveis, acordos e pagamentos do mês.</li><li>Confira o total e acompanhe a evolução nos demonstrativos.</li></ol></aside>
+        <aside class="info-card upload-help"><h3>Importação assistida</h3><ol><li>O painel lê datas, estabelecimentos, parcelas, valores e estornos.</li><li>Compara cada compra com o histórico já classificado.</li><li>Sugere responsáveis, mas mantém dúvidas sem dono.</li><li>Você revisa e confirma antes de alterar os cálculos.</li></ol></aside>
       </div>
+      <section id="invoiceReview" class="invoice-review" hidden>
+        <div class="review-head"><div><p class="eyebrow">REVISÃO ANTES DE IMPORTAR</p><h2>Lançamentos encontrados</h2><p id="invoiceParseStatus">Preparando a leitura do documento…</p></div><div id="invoiceReconciliation" class="reconciliation-card"></div></div>
+        <div class="review-toolbar"><label><input id="selectAllImported" type="checkbox" checked> Selecionar todos</label><div><button class="ghost" id="cancelInvoiceImport" type="button">Cancelar análise</button><button class="primary" id="confirmInvoiceImport" type="button">Confirmar lançamentos</button></div></div>
+        <div class="table-card import-table"><table><thead><tr><th></th><th>Data</th><th>Compra original</th><th>Parcela/local</th><th>Sugestão</th><th class="money">Valor</th></tr></thead><tbody id="invoiceImportRows"></tbody></table></div>
+      </section>
       <div class="section-heading compact"><div><p class="eyebrow">HISTÓRICO</p><h2>Faturas registradas</h2></div></div>
       <div id="registeredInvoices" class="registered-grid"></div>
     </section>
@@ -183,6 +188,6 @@
   <script src="app.js"></script>
   <script src="enhancements.js"></script>
   <script src="cloud-sync.js"></script>
+  <script src="invoice-import.js"></script>
 </body>
 </html>
-

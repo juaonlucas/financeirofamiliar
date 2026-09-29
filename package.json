@@ -4,7 +4,8 @@
   "private": true,
   "type": "module",
   "dependencies": {
-    "@vercel/blob": "^2.3.0"
+    "@vercel/blob": "^2.3.0",
+    "pdfjs-dist": "4.10.38"
   },
   "scripts": {
     "lint": "node scripts/check.mjs",
@@ -12,4 +13,3 @@
     "build": "node scripts/build.mjs"
   }
 }
-
