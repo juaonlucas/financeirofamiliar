@@ -108,7 +108,7 @@
           <div class="three-col"><label>Mês<select id="invoiceMonth" required><option value="">Selecione</option><option>Janeiro</option><option>Fevereiro</option><option>Março</option><option>Abril</option><option>Maio</option><option>Junho</option><option>Julho</option><option>Agosto</option><option>Setembro</option><option>Outubro</option><option>Novembro</option><option>Dezembro</option></select></label><label>Ano<input id="invoiceYear" type="number" min="2020" max="2100" value="2026" required></label><label>Valor oficial<input id="invoiceTotal" type="number" step="0.01" min="0" placeholder="0,00" required></label></div>
           <button class="primary" type="submit">Guardar fatura no painel</button>
         </form>
-        <aside class="info-card upload-help"><h3>Importação assistida</h3><ol><li>O painel lê datas, estabelecimentos, parcelas, valores e estornos.</li><li>Compara cada compra com o histórico já classificado.</li><li>Sugere responsáveis, mas mantém dúvidas sem dono.</li><li>Você revisa e confirma antes de alterar os cálculos.</li></ol></aside>
+        <aside class="info-card upload-help"><h3>Importação assistida</h3><ol><li>O painel lê datas, estabelecimentos, parcelas, valores e estornos.</li><li>Somente uma parcela continuada da mesma compra pode herdar o responsável da parcela anterior.</li><li>Todo lançamento novo entra obrigatoriamente como “Sem dono”. Coincidências de palavras ou nomes nunca definem responsável.</li><li>Você revisa e confirma antes de alterar os cálculos.</li></ol></aside>
       </div>
       <section id="invoiceReview" class="invoice-review" hidden>
         <div class="review-head"><div><p class="eyebrow">REVISÃO ANTES DE IMPORTAR</p><h2>Lançamentos encontrados</h2><p id="invoiceParseStatus">Preparando a leitura do documento…</p></div><div id="invoiceReconciliation" class="reconciliation-card"></div></div>
@@ -191,3 +191,4 @@
   <script src="invoice-import.js"></script>
 </body>
 </html>
+
