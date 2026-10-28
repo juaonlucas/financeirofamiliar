@@ -4,7 +4,7 @@ let applyingCloudState = false;
 
 function cloudKey() { return localStorage.getItem(CLOUD_KEY_STORAGE) || ""; }
 function cloudStatePayload() {
-  return { version: 3, owners: [...OWNERS], transactions, activeInvoiceId, deletedTransactions: deletedTransactions(), invoices, profiles, updatedAt: new Date().toISOString() };
+  return { version: 4, classificationPolicyVersion: 1, owners: [...OWNERS], transactions, activeInvoiceId, deletedTransactions: deletedTransactions(), invoices, profiles, updatedAt: new Date().toISOString() };
 }
 function setCloudStatus(message, type = "") {
   const status = document.querySelector("#syncStatus");
@@ -63,6 +63,20 @@ function applyCloudState(state) {
     activeInvoiceId = october.id;
     resetMonthlyProfileState();
   }
+  const needsClassificationPolicyMigration = Number(state.classificationPolicyVersion || 0) < 1 && activeInvoice()?.month === "Outubro" && Number(activeInvoice()?.year) === 2026;
+  if (needsClassificationPolicyMigration) {
+    transactions.forEach(tx => {
+      const installment = String(tx.installment || "").match(/^(\d+)\s*\/\s*(\d+)$/);
+      if (!installment || Number(installment[1]) === 1) {
+        tx.owner = "";
+        delete tx.shares;
+        tx.payTo = "";
+        tx.note = tx.note === "Importado do PDF; revisar descrição." ? "Lançamento novo; identificar responsável." : tx.note;
+      }
+    });
+    const october = activeInvoice();
+    if (october) october.transactions = structuredClone(transactions);
+  }
   localStorage.setItem(OWNER_STORAGE, JSON.stringify(OWNERS));
   localStorage.setItem(PROFILE_STORAGE, JSON.stringify(profiles));
   localStorage.setItem(DELETED_STORAGE, JSON.stringify(state.deletedTransactions || []));
@@ -74,7 +88,7 @@ function applyCloudState(state) {
   render();
   applyingCloudState = false;
   setReadOnly(!cloudKey());
-  return needsOctoberMigration;
+  return needsOctoberMigration || needsClassificationPolicyMigration;
 }
 async function loadPublicMemory() {
   try {
@@ -134,3 +148,4 @@ document.querySelector("#connectCloudMemory").onclick = connectCloudMemory;
 document.querySelector("#disconnectCloudMemory").onclick = disconnectCloudMemory;
 setReadOnly(!cloudKey());
 loadPublicMemory();
+
