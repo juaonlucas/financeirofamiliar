@@ -3,192 +3,26 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Painel local para conferência da fatura familiar BV.">
   <meta name="robots" content="noindex,nofollow,noarchive">
-  <title>Painel Financeiro Familiar</title>
-  <link rel="stylesheet" href="styles.css">
-  <link rel="stylesheet" href="enhancements.css">
+  <meta name="theme-color" content="#13285c">
+  <title>Painel Família</title>
+  <link rel="stylesheet" href="css/app.css">
+  <script type="module" src="js/main.js"></script>
 </head>
 <body>
-  <header class="topbar">
-    <div>
-      <p class="eyebrow">GESTÃO FINANCEIRA FAMILIAR</p>
-      <h1>Painel Família</h1>
-      <p class="subtitle">Cartão BV · vencimento 01/09/2026 · <span id="syncStatus">dados locais</span></p>
-    </div>
-    <div class="top-actions">
-      <button class="ghost" id="cloudMemoryBtn">☁ Memória</button>
-      <button class="ghost" id="shareImageBtn">Gerar imagem 1080×1350</button>
-      <button class="ghost" id="exportBtn">Exportar dados</button>
-      <label class="ghost file-label">Importar<input id="importInput" type="file" accept="application/json"></label>
-      <button class="primary" id="printBtn">Imprimir demonstrativo</button>
+  <header class="top">
+    <div class="top-in">
+      <div class="brand">
+        <div><h1>Painel Família</h1><small id="subtitle">Cartão BV</small></div>
+        <div class="top-actions" id="topActions"></div>
+      </div>
+      <div class="months" id="months" aria-label="Meses"></div>
     </div>
   </header>
-
-  <nav class="tabs" aria-label="Seções do painel">
-    <button class="tab active" data-tab="resumo">Painel</button>
-    <button class="tab" data-tab="compras">Compras</button>
-    <button class="tab" data-tab="acordos">Acordos e variações</button>
-    <button class="tab" data-tab="demonstrativos">Demonstrativos</button>
-    <button class="tab" data-tab="faturas">Importar próxima fatura</button>
-  </nav>
-
-  <main>
-    <section id="resumo" class="view active">
-      <div class="kpi-grid" id="kpis"></div>
-      <div class="section-heading">
-        <div><p class="eyebrow">QUEM PAGA</p><h2>Valores por responsável</h2></div>
-        <div class="section-heading-actions"><p>O valor grande é o pagamento confirmado do mês. A responsabilidade original, as pendências e os reembolsos permanecem detalhados em cada cartão.</p><button class="primary" id="newProfileBtn">+ Novo perfil</button></div>
-      </div>
-      <div class="people-grid" id="peopleGrid"></div>
-    </section>
-
-    <section id="compras" class="view">
-      <div class="section-heading">
-        <div><p class="eyebrow">CONFERÊNCIA</p><h2>Compras da fatura</h2></div>
-        <div class="filters">
-          <button class="primary" id="addTransactionBtn">+ Incluir lançamento</button>
-          <input id="searchInput" type="search" placeholder="Buscar compra, pessoa ou descrição">
-          <select id="ownerFilter"><option value="">Todos os responsáveis</option></select>
-          <select id="statusFilter"><option value="">Todos os status</option><option value="identified">Identificadas</option><option value="unknown">Sem dono</option><option value="agreement">Com acordo</option></select>
-        </div>
-      </div>
-      <div class="table-card">
-        <table>
-          <thead><tr><th>Data</th><th>Compra</th><th>Responsável</th><th>Observação</th><th class="money">Valor</th><th></th></tr></thead>
-          <tbody id="purchaseRows"></tbody>
-        </table>
-      </div>
-    </section>
-
-    <section id="acordos" class="view">
-      <div class="section-heading">
-        <div><p class="eyebrow">EXCEÇÕES DO MÊS</p><h2>Acordos, cobranças e variações</h2></div>
-        <p>Responsabilidade da fatura e pagamento combinado são controles diferentes.</p>
-      </div>
-      <div class="agreement-grid" id="agreementGrid"></div>
-      <div class="section-heading compact">
-        <div><p class="eyebrow">CONTROLE CONECTADO</p><h2>Quem paga, quanto e para quem</h2></div>
-        <select id="variationOwnerFilter"><option value="">Todas as pessoas</option></select>
-      </div>
-      <div class="table-card">
-        <table class="variation-table">
-          <thead><tr><th>Compra original</th><th>Pessoa</th><th class="money">Responsabilidade</th><th>Pagará neste mês</th><th>Pagará para</th><th>Observação da variação</th><th></th></tr></thead>
-          <tbody id="variationRows"></tbody>
-        </table>
-      </div>
-      <div class="info-card">
-        <h3>Como registrar uma variação</h3>
-        <p>Abra uma compra, altere “paga neste mês” e mantenha o valor atribuído. A diferença aparecerá como pendência sem mudar quem responde pela compra.</p>
-      </div>
-    </section>
-
-    <section id="demonstrativos" class="view">
-      <div class="section-heading">
-        <div><p class="eyebrow">ANÁLISE</p><h2>Demonstrativos e evolução</h2></div>
-        <select id="analysisOwner"></select>
-      </div>
-      <div class="analytics-grid">
-        <article class="chart-card wide"><div class="card-title"><div><span>FATURAS DISPONÍVEIS</span><h3>Evolução do total</h3></div><strong id="variationLabel"></strong></div><canvas id="invoiceChart" height="240"></canvas></article>
-        <article class="chart-card"><div class="card-title"><div><span>SETEMBRO</span><h3>Distribuição</h3></div></div><div id="distributionChart" class="bar-chart"></div></article>
-        <article class="chart-card"><div class="card-title"><div><span>INDIVIDUAL</span><h3 id="individualTitle">Detalhamento</h3></div></div><div id="individualStats"></div></article>
-        <article class="chart-card wide"><div class="card-title"><div><span>BASE DOCUMENTAL</span><h3>Faturas disponíveis para comparação</h3></div></div><div id="invoiceList" class="invoice-list"></div></article>
-      </div>
-    </section>
-
-    <section id="faturas" class="view">
-      <div class="section-heading">
-        <div><p class="eyebrow">ARQUIVO LOCAL</p><h2>Receber próxima fatura</h2></div>
-        <p>O PDF fica guardado somente neste navegador. Depois de registrado, os lançamentos podem ser incluídos e classificados no painel.</p>
-      </div>
-      <div class="upload-layout">
-        <form id="invoiceUploadForm" class="upload-card">
-          <label class="drop-zone" for="invoicePdf"><strong>Selecione ou arraste a fatura em PDF</strong><span>O documento será lido neste aparelho e você revisará tudo antes de importar.</span><input id="invoicePdf" type="file" accept="application/pdf" required></label>
-          <div id="selectedPdf" class="selected-file">Nenhum PDF selecionado</div>
-          <div class="three-col"><label>Mês<select id="invoiceMonth" required><option value="">Selecione</option><option>Janeiro</option><option>Fevereiro</option><option>Março</option><option>Abril</option><option>Maio</option><option>Junho</option><option>Julho</option><option>Agosto</option><option>Setembro</option><option>Outubro</option><option>Novembro</option><option>Dezembro</option></select></label><label>Ano<input id="invoiceYear" type="number" min="2020" max="2100" value="2026" required></label><label>Valor oficial<input id="invoiceTotal" type="number" step="0.01" min="0" placeholder="0,00" required></label></div>
-          <button class="primary" type="submit">Guardar fatura no painel</button>
-        </form>
-        <aside class="info-card upload-help"><h3>Importação assistida</h3><ol><li>O painel lê datas, estabelecimentos, parcelas, valores e estornos.</li><li>Somente uma parcela continuada da mesma compra pode herdar o responsável da parcela anterior.</li><li>Todo lançamento novo entra obrigatoriamente como “Sem dono”. Coincidências de palavras ou nomes nunca definem responsável.</li><li>Você revisa e confirma antes de alterar os cálculos.</li></ol></aside>
-      </div>
-      <section id="invoiceReview" class="invoice-review" hidden>
-        <div class="review-head"><div><p class="eyebrow">REVISÃO ANTES DE IMPORTAR</p><h2>Lançamentos encontrados</h2><p id="invoiceParseStatus">Preparando a leitura do documento…</p></div><div id="invoiceReconciliation" class="reconciliation-card"></div></div>
-        <div class="review-toolbar"><label><input id="selectAllImported" type="checkbox" checked> Selecionar todos</label><div><button class="ghost" id="cancelInvoiceImport" type="button">Cancelar análise</button><button class="primary" id="confirmInvoiceImport" type="button">Confirmar lançamentos</button></div></div>
-        <div class="table-card import-table"><table><thead><tr><th></th><th>Data</th><th>Compra original</th><th>Parcela/local</th><th>Sugestão</th><th class="money">Valor</th></tr></thead><tbody id="invoiceImportRows"></tbody></table></div>
-      </section>
-      <div class="section-heading compact"><div><p class="eyebrow">HISTÓRICO</p><h2>Faturas registradas</h2></div></div>
-      <div id="registeredInvoices" class="registered-grid"></div>
-    </section>
-  </main>
-
-  <dialog id="editDialog">
-    <form method="dialog" id="editForm">
-      <div class="dialog-head"><div><p class="eyebrow">EDITAR COMPRA</p><h2 id="dialogTitle"></h2></div><button class="icon-btn" value="cancel" aria-label="Fechar">×</button></div>
-      <input type="hidden" id="editId">
-      <div class="two-col"><label>Data<input id="editDate" placeholder="DD/MM"></label><label>Parcela<input id="editInstallment" placeholder="Ex.: 01/05"></label></div>
-      <label>Nome original na fatura<input id="editMerchant" required></label>
-      <label>Local da compra<input id="editLocation"></label>
-      <label>Responsável principal<select id="editOwner"></select></label>
-      <label>Descrição da compra<input id="editNote" placeholder="Ex.: vitamina, televisão, combustível"></label>
-      <div class="two-col"><label>Valor atribuído<input id="editAmount" type="number" step="0.01"></label><label>Pagará neste mês<input id="editDueNow" type="number" step="0.01"></label></div>
-      <div class="two-col"><label>Paga para<input id="editPayTo" placeholder="Ex.: Rosa"></label><label>Observação da variação<input id="editVariationNote" placeholder="Ex.: pagará R$ 50 neste mês"></label></div>
-      <fieldset class="participant-fieldset">
-        <legend>Participantes da compra <small>Escolha até 3 pessoas; o valor será dividido automaticamente.</small></legend>
-        <div id="participantRows" class="participant-rows"></div>
-        <div class="participant-summary" id="participantSummary">Sem divisão: o responsável principal assume o valor integral.</div>
-      </fieldset>
-      <details class="advanced-share-editor">
-        <summary>Ajustar valores individuais</summary>
-        <label>Uma linha por pessoa <small>NOME = VALOR = PAGA NO MÊS = PAGA PARA = OBSERVAÇÃO</small><textarea id="editShares" rows="4" placeholder="AIANNY = 113,33 = 80,00 = ROSA = restante no próximo mês"></textarea></label>
-      </details>
-      <div class="two-col"><label>Cobrar de<input id="editAgreementPerson" placeholder="Ex.: Leandro"></label><label>Quanto cobrar<input id="editAgreementAmount" type="number" step="0.01"></label></div>
-      <label>Observação do acordo<input id="editAgreementNote" placeholder="Ex.: metade do material de construção"></label>
-      <div class="dialog-actions"><button type="button" id="deleteTransaction" class="danger-button">Excluir lançamento</button><span class="dialog-spacer"></span><button value="cancel" class="ghost">Cancelar</button><button value="default" id="saveEdit" class="primary">Salvar alteração</button></div>
-    </form>
-  </dialog>
-
-  <dialog id="shareDialog" class="share-dialog">
-    <div class="share-dialog-body">
-      <div class="dialog-head"><div><p class="eyebrow">IMAGEM PARA WHATSAPP</p><h2>Demonstrativo de pagamento</h2></div><button class="icon-btn" id="closeShareDialog" aria-label="Fechar">×</button></div>
-      <img id="sharePreview" alt="Prévia do demonstrativo em formato 1080 por 1350">
-      <div class="dialog-actions"><button class="ghost" id="downloadShareImage">Baixar PNG</button><button class="primary" id="nativeShareImage">Compartilhar</button></div>
-    </div>
-  </dialog>
-
-  <dialog id="cloudMemoryDialog" class="memory-dialog">
-    <form method="dialog" class="memory-dialog-body">
-      <div class="dialog-head"><div><p class="eyebrow">CONFIGURAÇÕES</p><h2>Memória entre dispositivos</h2></div><button class="icon-btn" value="cancel" aria-label="Fechar">×</button></div>
-      <p class="memory-explanation">O painel é carregado automaticamente para qualquer visitante. A chave é necessária somente nos aparelhos de João Lucas que poderão salvar alterações para todos.</p>
-      <label>Chave de acesso<input id="cloudMemoryKey" type="password" autocomplete="current-password" placeholder="Digite a chave configurada no Vercel"></label>
-      <div id="cloudMemoryState" class="memory-state">Memória ainda não conectada neste aparelho.</div>
-      <div class="dialog-actions"><button type="button" class="danger-button" id="disconnectCloudMemory">Desconectar aparelho</button><span class="dialog-spacer"></span><button value="cancel" class="ghost">Cancelar</button><button type="button" class="primary" id="connectCloudMemory">Conectar e sincronizar</button></div>
-    </form>
-  </dialog>
-
-  <dialog id="profileDialog" class="profile-dialog">
-    <div class="profile-dialog-body">
-      <div class="dialog-head profile-dialog-head"><div class="profile-title-group"><div id="profileHeroAvatar"></div><div><p class="eyebrow">PERFIL FINANCEIRO</p><h2 id="profileTitle">Pessoa</h2></div></div><button class="icon-btn" id="closeProfileDialog" aria-label="Fechar">×</button></div>
-      <div class="profile-editor">
-        <label>Nome<input id="profileName"></label>
-        <label>Identificação<select id="profileGender"><option value="female">Mulher</option><option value="male">Homem</option><option value="couple">Casal</option><option value="person">Pessoa</option></select></label>
-        <label>Cor<input id="profileColor" type="color"></label>
-        <label class="profile-notes">Características e observações<textarea id="profileNotes" rows="2" placeholder="Ex.: normalmente paga para Rosa"></textarea></label>
-        <button class="primary" id="saveProfile">Salvar perfil</button>
-      </div>
-      <div id="profileSummary" class="profile-summary"></div>
-      <div class="profile-insights">
-        <section class="profile-panel"><div class="panel-heading"><div><p class="eyebrow">PROJEÇÃO</p><h3>Estimativa dos próximos 3 meses</h3></div><small>Somente parcelas já conhecidas</small></div><div id="profileProjection" class="projection-chart"></div></section>
-        <section class="profile-panel"><div class="panel-heading"><div><p class="eyebrow">SAINDO DA FATURA</p><h3>Últimas parcelas e compras do mês</h3></div></div><div id="profileEnding" class="ending-list"></div></section>
-      </div>
-      <div id="profilePurchases" class="profile-purchases"></div>
-      <div class="message-box"><div><h3>Mensagem para enviar</h3><div class="message-actions"><button class="ghost" id="profileShareImage">Gerar imagem do perfil</button><button class="ghost" id="copyProfileMessage">Copiar mensagem</button></div></div><textarea id="profileMessage" rows="12" readonly></textarea></div>
-    </div>
-  </dialog>
-
-  <footer><span>Painel local · setembro de 2026</span><button id="resetBtn">Restaurar dados originais</button></footer>
-  <script src="app.js"></script>
-  <script src="enhancements.js"></script>
-  <script src="cloud-sync.js"></script>
-  <script src="invoice-import.js"></script>
+  <nav class="tabs" id="tabsBar" aria-label="Seções"><div class="in" id="tabs"></div></nav>
+  <main id="view"><div class="loading">Carregando o painel…</div></main>
+  <footer class="foot"><span id="sync" class="sync">carregando…</span></footer>
+  <dialog id="dialog"></dialog>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
 </body>
 </html>
-
