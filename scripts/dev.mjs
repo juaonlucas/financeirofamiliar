@@ -28,7 +28,7 @@ createServer(async (req, res) => {
     if (req.method === "POST") return json(res, 200, { authorized: true });
     let body = ""; for await (const chunk of req) body += chunk;
     const next = JSON.parse(body), base = req.headers["x-base-updated-at"];
-    if (base && state?.updatedAt && state.updatedAt !== base) return json(res, 409, { error: "Os dados foram alterados em outro aparelho.", state });
+    if (base && state?.updatedAt && state.updatedAt > base) return json(res, 409, { error: "Os dados foram alterados em outro aparelho.", state });
     next.updatedAt = new Date().toISOString();
     writeFileSync(FILE, JSON.stringify(next));
     return json(res, 200, { saved: true, updatedAt: next.updatedAt });

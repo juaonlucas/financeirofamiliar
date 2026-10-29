@@ -52,10 +52,11 @@ export default async function handler(request, response) {
       return send(response, 400, { error: "Estrutura financeira inválida." });
     }
     // Evita que um aparelho com dados antigos apague o que outro salvou depois.
+    // Só recusa se o salvo for MAIS NOVO que a base: logo após gravar, o Blob pode devolver a versão anterior por alguns segundos.
     const base = String(request.headers["x-base-updated-at"] || "");
     if (base) {
       const current = await readState();
-      if (current?.updatedAt && current.updatedAt !== base) {
+      if (current?.updatedAt && current.updatedAt > base) {
         return send(response, 409, { error: "Os dados foram alterados em outro aparelho.", state: current });
       }
     }
