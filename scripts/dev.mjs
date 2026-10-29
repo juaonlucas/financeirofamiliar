@@ -1,7 +1,7 @@
 // Servidor local para testar o painel sem tocar nos dados reais: node scripts/dev.mjs [estado.json]
 // Chave de edição local: "dev" (ou PANEL_SYNC_SECRET). Dados ficam em .dev-state.json.
 import { createServer } from "node:http";
-import { existsSync, readFileSync, writeFileSync, copyFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync, copyFileSync, mkdirSync, readdirSync } from "node:fs";
 import { extname, join, normalize } from "node:path";
 import { fileURLToPath } from "node:url";
 import { personScope } from "../js/finance.js";
@@ -20,7 +20,7 @@ createServer(async (req, res) => {
   if (url.pathname === "/api/state") {
     const admin = req.headers["x-panel-key"] === KEY, state = read();
     if (req.method === "GET") {
-      if (admin) return json(res, 200, state ? { exists: true, scope: "admin", state } : { exists: false });
+      if (admin || process.env.PANEL_PUBLIC_READ === "1") return json(res, 200, state ? { exists: true, scope: admin ? "admin" : "public", state } : { exists: false });
       const owner = state && Object.keys(state.profiles || {}).find(o => state.profiles[o]?.token && state.profiles[o].token === url.searchParams.get("p"));
       return owner ? json(res, 200, { exists: true, scope: "person", owner, state: personScope(state, owner) }) : json(res, 401, { error: "Acesso restrito. Use o seu link pessoal ou a chave de edição." });
     }
@@ -32,6 +32,22 @@ createServer(async (req, res) => {
     next.updatedAt = new Date().toISOString();
     writeFileSync(FILE, JSON.stringify(next));
     return json(res, 200, { saved: true, updatedAt: next.updatedAt });
+  }
+  if (url.pathname === "/api/invoice-pdf") {
+    const admin = req.headers["x-panel-key"] === KEY, dir = ".dev-pdfs";
+    if (!existsSync(dir)) mkdirSync(dir);
+    if (req.method === "GET") {
+      if (!admin && process.env.PANEL_PUBLIC_READ !== "1") return json(res, 401, { error: "Acesso restrito." });
+      const id = url.searchParams.get("id");
+      if (!id) return json(res, 200, { ids: readdirSync(dir).map(f => f.replace(/\.pdf$/, "")) });
+      if (!existsSync(`${dir}/${id}.pdf`)) return json(res, 404, { error: "PDF não encontrado." });
+      res.writeHead(200, { "content-type": "application/pdf" }); return res.end(readFileSync(`${dir}/${id}.pdf`));
+    }
+    if (!admin) return json(res, 401, { error: "Chave de acesso inválida." });
+    let body = ""; for await (const chunk of req) body += chunk;
+    const { id, data } = JSON.parse(body);
+    writeFileSync(`${dir}/${id}.pdf`, Buffer.from(data, "base64"));
+    return json(res, 200, { saved: true, id });
   }
   let path = url.pathname === "/" ? "/index.html" : url.pathname;
   let file = path.startsWith("/assets/pdfjs/") ? join("node_modules/pdfjs-dist/build", path.slice(14)) : normalize(join(".", path));

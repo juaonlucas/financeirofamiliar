@@ -1,7 +1,7 @@
 // Importação da fatura em PDF: leitura, revisão e criação do novo mês.
 import { allocations, archiveActive, brl, MONTHS, num, plain, resetMonthlyState, round2, splitCents, suggestOwners, defaultPayTo } from "./finance.js";
 import { readInvoicePdf } from "./pdf-import.js";
-import { commit, store } from "./store.js";
+import { commit, store, uploadPdf } from "./store.js";
 import { $, $$, app, canEdit, esc, toast } from "./ui.js";
 
 let review = null; // { file, summary, rows }
@@ -106,6 +106,7 @@ function confirmImport() {
   invoice.transactions = structuredClone(state.transactions);
   commit();
   toast(`${chosen.length} lançamentos importados · ${chosen.filter(r => allocations(r).length || r.owners.length).length} já com dono`);
+  uploadPdf(invoice.id, review.file).then(() => toast("PDF da fatura guardado no painel")).catch(e => toast(`PDF não guardado: ${e.message}`));
   review = null;
   app.monthId = invoice.id;
   location.hash = "identificar";

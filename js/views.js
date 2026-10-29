@@ -1,6 +1,6 @@
 // Telas do painel. Cada função desenha em #view; as ações usam data-action (tratadas em main.js).
-import { allocations, brl, installment, isFee, isLateFee, monthOffsetLabel, plain, projection, splitCents, suggestOwners, historyTransactions, num, CARD_PAYER } from "./finance.js";
-import { store } from "./store.js";
+import { allocations, brl, compareMonths, installment, isFee, isLateFee, monthOffsetLabel, ownerTotals, plain, projection, sortInvoices, splitCents, suggestOwners, historyTransactions, num, CARD_PAYER } from "./finance.js";
+import { pdfs, pdfUrl, store } from "./store.js";
 import { $, app, avatar, canEdit, color, daysUntil, describe, esc, first, month, PILL } from "./ui.js";
 
 const view = html => { $("#view").innerHTML = html; };
@@ -28,6 +28,7 @@ export function renderMes() {
   if (m.active && invoice.availableLimit !== undefined && invoice.availableLimit !== null && invoice.availableLimit < 500) alerts.push(["info", "%", `Limite disponível: ${brl(invoice.availableLimit)}`, invoice.nextInstallments ? `A próxima fatura já começa com ${brl(invoice.nextInstallments)} em parcelas.` : "O cartão está praticamente sem limite.", ["Ver", "futuro"]]);
   if (missing.length) alerts.push(["bad", "R$", `Falta cobrir ${brl(missing.reduce((s, x) => s + x.s.missing, 0))}`, `${missing.map(x => first(x.o)).join(", ")} pagou menos do que o combinado e ninguém cobriu a diferença.`, null]);
   if (varied.length || agreements.length) alerts.push(["info", "≈", "Combinados do mês", [varied.length ? `${varied.map(first).join(", ")} paga menos agora (${brl(owners.reduce((s, o) => s + totals.people[o].pending, 0))} pendente)` : "", agreements.length ? `${plural(agreements.length, "acordo", "acordos")} para cobrar de terceiros` : ""].filter(Boolean).join(" · "), null]);
+  if (invoice.legacy) alerts.splice(0, alerts.length, ["info", "🗂", "Fatura antiga guardada para conferência", "Registrada antes do painel dividir por pessoa: serve para comparar compras, parcelas e totais.", null]);
   if (!alerts.length) alerts.push(["ok", "✓", stage === 4 ? "Mês fechado" : "Tudo em ordem", stage === 4 ? "Todos pagaram. Nada pendente." : "Fatura identificada e conciliada.", null]);
 
   view(`
@@ -38,12 +39,43 @@ export function renderMes() {
       <div class="sub">${plural(list.length, "lançamento", "lançamentos")} · ${brl(total - totals.unknown)} já têm dono${Math.abs(totals.sum - total) > 0.02 ? ` · <span class="warn-text">lançamentos somam ${brl(totals.sum)}</span>` : ""}</div>
       <div class="stack" role="img" aria-label="Divisão da fatura por pessoa">${owners.map(o => `<b style="width:${totals.people[o].total / total * 100}%;background:${color(o)}" title="${esc(o)} ${brl(totals.people[o].total)}"></b>`).join("")}<b class="unk" style="width:${Math.max(0, totals.unknown) / total * 100}%" title="Sem dono ${brl(totals.unknown)}"></b></div>
       <div class="legend">${owners.map(o => `<span><i style="background:${color(o)}"></i>${esc(first(o))} ${money(totals.people[o].total)}</span>`).join("")}${totals.unknown ? `<span><i class="unk"></i>Sem dono ${money(totals.unknown)}</span>` : ""}</div>
-      <div class="steps">${steps.map(([label, p], i) => `<div class="step ${i < stage || stage === 4 ? "done" : i === stage ? "now" : ""}" style="--p:${Math.round(p * 100)}%"><i></i><span>${label}</span></div>`).join("")}</div>
+      <div class="steps" ${invoice.legacy ? "hidden" : ""}>${steps.map(([label, p], i) => `<div class="step ${i < stage || stage === 4 ? "done" : i === stage ? "now" : ""}" style="--p:${Math.round(p * 100)}%"><i></i><span>${label}</span></div>`).join("")}</div>
     </section>
     <section>${alerts.map(([kind, icon, title, text, action]) => `<div class="alert ${kind}"><span class="ico">${icon}</span><div><strong>${title}</strong><p>${text}</p></div>${action ? `<button class="act" data-action="go" data-arg="${action[1]}">${action[0]}</button>` : ""}</div>`).join("")}</section>
   </div>
-  <div class="section-h"><h2>Quem paga o quê</h2>${canEdit() ? '<button class="link" data-action="new-profile">+ Nova pessoa</button>' : ""}</div>
-  <div class="people">${owners.map(o => personCard(o, totals.people[o], status(o))).join("") || '<p class="sub">Ninguém identificado ainda.</p>'}</div>`);
+  ${invoice.legacy ? "" : `<div class="section-h"><h2>Quem paga o quê</h2>${canEdit() ? '<button class="link" data-action="new-profile">+ Nova pessoa</button>' : ""}</div>
+  <div class="people">${owners.map(o => personCard(o, totals.people[o], status(o))).join("") || '<p class="sub">Ninguém identificado ainda.</p>'}</div>`}
+  ${comparison(m)}`);
+}
+
+function monthTransactions(state, invoice) {
+  return invoice.id === state.activeInvoiceId ? state.transactions : invoice.transactions || [];
+}
+
+/** Bloco "Comparado com o mês anterior". */
+function comparison(m) {
+  const state = store.state, ordered = sortInvoices(state.invoices), index = ordered.findIndex(i => i.id === m.invoice.id);
+  const prev = ordered[index - 1];
+  if (!prev) return "";
+  const prevTotal = num(prev.total), curTotal = num(m.invoice.total) || m.totals.sum, diff = curTotal - prevTotal;
+  const pct = prevTotal ? diff / prevTotal * 100 : 0;
+  const prevTx = monthTransactions(state, prev);
+  const head = `<div class="section-h"><h2>Comparado com ${esc(prev.month)}${String(prev.year) !== String(m.invoice.year) ? ` ${esc(prev.year)}` : ""}</h2>${pdfs.has(m.invoice.id) ? `<a class="link" href="${pdfUrl(m.invoice.id)}" target="_blank" rel="noopener">PDF desta fatura</a>` : ""}</div>`;
+  const totalStat = `<div class="stat"><span>Total da fatura</span><strong>${money(curTotal)}</strong><em class="${diff > 0 ? "up" : "down"}">${diff >= 0 ? "▲" : "▼"} ${brl(Math.abs(diff))} (${pct.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%)</em><small>${esc(prev.month)}: ${brl(prevTotal)}</small></div>`;
+  if (!prevTx.length) return `${head}<section class="card stats">${totalStat}<p class="sub">A fatura de ${esc(prev.month)} só tem o total registrado.</p></section>`;
+  const cmp = compareMonths(prevTx, m.transactions);
+  const prevOwners = ownerTotals(prevTx, state.owners).people;
+  const deltas = m.owners.filter(o => prevOwners[o]?.count).map(o => ({ o, d: m.totals.people[o].total - prevOwners[o].total })).filter(x => Math.abs(x.d) > 0.5);
+  const list = (items, label) => items.length ? `<details><summary>${label} (${items.length})</summary><div class="mini-list">${items.map(tx => `<div><span>${esc(tx.date)} · ${esc(describe(tx) || tx.merchant)} <small>${esc(tx.installment || "à vista")}</small></span>${money(tx.amount)}</div>`).join("")}</div></details>` : "";
+  return `${head}<section class="card">
+    <div class="stats">${totalStat}
+      <div class="stat"><span>Compras novas ou avulsas</span><strong>${money(cmp.freshSum)}</strong><small>${plural(cmp.fresh.length, "lançamento", "lançamentos")}</small></div>
+      <div class="stat"><span>Parcelas que continuam</span><strong>${money(cmp.continuingSum)}</strong><small>${plural(cmp.continuing.length, "parcela", "parcelas")}</small></div>
+      <div class="stat"><span>Saíram da fatura</span><strong>${money(cmp.endedSum)}</strong><small>${plural(cmp.ended.length, "lançamento", "lançamentos")} de ${esc(prev.month)}</small></div>
+    </div>
+    ${deltas.length ? `<div class="deltas">${deltas.map(x => `<span class="who-chip" style="--c:${color(x.o)}">${esc(first(x.o))} ${x.d > 0 ? "▲" : "▼"} ${brl(Math.abs(x.d))}</span>`).join("")}</div>` : ""}
+    ${list(cmp.fresh, "Ver compras novas")}${list(cmp.ended, `Ver o que saiu desde ${esc(prev.month)}`)}
+  </section>`;
 }
 
 function personCard(o, p, s) {
@@ -213,7 +245,7 @@ export function renderFuturo() {
 
 /* ------------------------------------------------------------ histórico */
 export function renderHistorico() {
-  const state = store.state, invoices = [...state.invoices];
+  const state = store.state, invoices = sortInvoices(state.invoices);
   const max = Math.max(...invoices.map(i => num(i.total)), 1);
   const detailed = invoices.filter(i => i.id === state.activeInvoiceId || i.transactions?.length);
   const perMonth = detailed.map(i => {
@@ -233,7 +265,15 @@ export function renderHistorico() {
     <tr class="total"><td>Fatura</td>${perMonth.map(x => `<td>${money(x.i.total)}</td>`).join("")}</tr>
   </tbody></table></section>
   <h2>Faturas registradas</h2>
-  <div class="inv-list">${invoices.slice().reverse().map(i => `<div class="card slim inv"><div><strong>${esc(i.month)} ${esc(i.year)}</strong><div class="sub">${esc(i.file || i.detail || "")}</div></div><div class="money strong">${brl(i.total)}</div>${i.id === state.activeInvoiceId ? '<span class="pill paid">em evidência</span>' : i.transactions?.length ? `<button class="link" data-action="open-month" data-arg="${esc(i.id)}">abrir</button>` : '<span class="sub">só total</span>'}</div>`).join("")}</div>`);
+  <div class="inv-list">${invoices.map((i, k) => ({ i, prev: invoices[k - 1] })).reverse().map(({ i, prev }) => {
+    const diff = prev ? num(i.total) - num(prev.total) : 0, open = i.id === state.activeInvoiceId || i.transactions?.length;
+    return `<div class="card slim inv">
+      <div><strong>${esc(i.month)} ${esc(i.year)}</strong>${i.id === state.activeInvoiceId ? ' <span class="pill paid">em evidência</span>' : ""}<div class="sub">${prev ? `${diff >= 0 ? "▲" : "▼"} ${brl(Math.abs(diff))} vs ${esc(prev.month.slice(0, 3).toLowerCase())}` : "primeira registrada"}${i.legacy ? " · sem divisão por pessoa" : ""}</div></div>
+      <div class="money strong">${brl(i.total)}</div>
+      <div class="inv-actions">${open ? `<button class="link" data-action="open-month" data-arg="${esc(i.id)}">abrir</button>` : ""}
+        ${pdfs.has(i.id) ? `<a class="link" href="${pdfUrl(i.id)}" target="_blank" rel="noopener">PDF</a>` : canEdit() ? `<label class="link file-link">anexar PDF<input type="file" accept="application/pdf" data-attach="${esc(i.id)}"></label>` : '<span class="sub">sem PDF</span>'}</div>
+    </div>`;
+  }).join("")}</div>`);
 }
 
 export { splitCents };

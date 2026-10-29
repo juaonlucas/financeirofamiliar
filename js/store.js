@@ -42,7 +42,7 @@ export async function load() {
     store.state = normalize(data.state);
     store.mode = data.scope === "person" ? "person" : data.scope === "admin" ? "admin" : "public";
     store.owner = data.owner || null;
-    setStatus(store.mode === "admin" ? "sincronizado" : "somente leitura", "ok");
+    setStatus(store.mode === "admin" ? "sincronizado · você pode editar" : "modo visualização · para editar, toque em ⚙", "ok");
   } catch (error) {
     store.mode = store.state ? store.mode : "locked";
     setStatus(error.message, "error");
@@ -101,5 +101,26 @@ export async function connect(key) {
 }
 
 export function disconnect() { setKey(""); load(); }
+
+/* PDFs originais das faturas */
+export const pdfs = new Set();
+export async function loadPdfList() {
+  try {
+    const key = getKey(), response = await fetch("/api/invoice-pdf", { headers: key ? { "x-panel-key": key } : {} });
+    if (!response.ok) return;
+    pdfs.clear(); (await response.json()).ids.forEach(id => pdfs.add(id));
+    emit("pdfs");
+  } catch { /* lista indisponível: os links simplesmente não aparecem */ }
+}
+export async function uploadPdf(id, file) {
+  const buffer = new Uint8Array(await file.arrayBuffer());
+  let binary = "";
+  for (let i = 0; i < buffer.length; i += 0x8000) binary += String.fromCharCode(...buffer.subarray(i, i + 0x8000));
+  const response = await fetch("/api/invoice-pdf", { method: "PUT", headers: { "x-panel-key": getKey(), "content-type": "application/json" }, body: JSON.stringify({ id, data: btoa(binary) }) });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data.error || "Falha ao guardar o PDF");
+  pdfs.add(id); emit("pdfs");
+}
+export const pdfUrl = id => `/api/invoice-pdf?id=${encodeURIComponent(id)}`;
 
 addEventListener("beforeunload", event => { if (store.pending || store.saving) { event.preventDefault(); event.returnValue = ""; } });

@@ -1,6 +1,6 @@
 // Ponto de entrada: carrega os dados, desenha o topo e despacha as ações das telas.
-import { allocations, assignOwners, isFee, isLateFee, plain } from "./finance.js";
-import { commit, connect, load, store } from "./store.js";
+import { allocations, assignOwners, isFee, isLateFee, plain, sortInvoices } from "./finance.js";
+import { commit, connect, load, loadPdfList, store, uploadPdf } from "./store.js";
 import { $, $$, app, canEdit, esc, month, toast } from "./ui.js";
 import { filters, isSplitMode, recentlyAssigned, renderFuturo, renderHistorico, renderIdentificar, renderLancamentos, renderMes, renderPessoa, renderPessoas, toggleSplit } from "./views.js";
 import { editPayment, editProfile, editTransaction, personalLink, sendMessage, settings, shareImage } from "./dialogs.js";
@@ -22,11 +22,11 @@ function route() {
 
 function renderTop(name) {
   const state = store.state, person = store.mode === "person";
-  const months = state.invoices.filter(i => i.id === state.activeInvoiceId || i.transactions?.length);
+  const months = sortInvoices(state.invoices).filter(i => i.id === state.activeInvoiceId || i.transactions?.length);
   $("#subtitle").textContent = person ? `Demonstrativo de ${store.owner}` : "Cartão BV · gestão de João Lucas";
   $("#months").innerHTML = months.map(i => `<button class="${i.id === app.monthId ? "on" : ""}" data-month="${esc(i.id)}">${esc(i.month.slice(0, 3))} ${String(i.year).slice(2)}${i.id === state.activeInvoiceId ? " •" : ""}</button>`).join("");
   $("#topActions").innerHTML = person ? "" : `${canEdit() ? '<button class="ghost" data-action="go" data-arg="importar">Importar fatura</button>' : ""}<button class="ghost icon" data-action="settings" aria-label="Configurações" title="Configurações">⚙</button>`;
-  const unknown = month().totals.unknownCount;
+  const current = month(), unknown = current.invoice?.legacy ? 0 : current.totals.unknownCount;
   $("#tabs").innerHTML = person ? "" : TABS.filter(([k]) => k !== "identificar" || canEdit() || unknown).map(([k, label]) =>
     `<button class="${name === k || (name === "pessoa" && k === "pessoas") ? "on" : ""}" data-action="go" data-arg="${k}">${label}${k === "identificar" && unknown ? ` <span class="badge">${unknown}</span>` : ""}</button>`).join("");
   $("#tabsBar").hidden = person;
@@ -86,6 +86,10 @@ document.addEventListener("click", event => {
 });
 document.addEventListener("change", event => {
   const el = event.target;
+  if (el.dataset.attach && el.files[0]) {
+    uploadPdf(el.dataset.attach, el.files[0]).then(() => toast("PDF guardado")).catch(e => toast(e.message));
+    return;
+  }
   if (el.dataset.action === "split") { toggleSplit(Number(el.dataset.arg), el.checked); return; }
   if (el.dataset.filter) { filters[el.dataset.filter] = el.value; renderLancamentos(); }
   if (el.closest("#months")) return;
@@ -107,7 +111,7 @@ $("#dialog").addEventListener("click", event => { if (event.target.id === "dialo
 store.listeners.add(kind => {
   if (kind === "status") { const el = $("#sync"); el.textContent = store.status; el.className = `sync ${store.statusKind || ""}`; return; }
   if (kind === "conflict") toast("Outro aparelho salvou antes. Carregamos a versão mais nova; refaça a última alteração.");
-  if (kind === "load") app.monthId = store.state?.activeInvoiceId || null;
+  if (kind === "load") { app.monthId = store.state?.activeInvoiceId || null; if (store.state) loadPdfList(); }
   const scrollY = scrollY_();
   route();
   if (kind === "change") window.scrollTo(0, scrollY);

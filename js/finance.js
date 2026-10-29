@@ -187,6 +187,26 @@ export function personScope(state, owner) {
   };
 }
 
+/** Compara dois meses: o que entrou, o que continua e o que saiu da fatura. */
+export function compareMonths(previous, current) {
+  const pool = previous.map(tx => ({ tx, part: installment(tx.installment), used: false }));
+  const continuing = [], fresh = [];
+  for (const tx of current) {
+    const part = installment(tx.installment);
+    const match = part && part.current > 1 && pool.find(p => !p.used && p.part && p.part.total === part.total && p.part.current === part.current - 1
+      && plain(p.tx.merchant) === plain(tx.merchant) && Math.abs(num(p.tx.amount) - num(tx.amount)) <= Math.max(0.5, num(tx.amount) * 0.01));
+    if (match) { match.used = true; continuing.push({ tx, previous: match.tx }); } else fresh.push(tx);
+  }
+  const ended = pool.filter(p => !p.used).map(p => p.tx);
+  const sum = list => round2(list.reduce((s, tx) => s + num(tx.amount), 0));
+  return { continuing, fresh, ended, freshSum: sum(fresh), endedSum: sum(ended), continuingSum: sum(continuing.map(c => c.tx)) };
+}
+
+/** Meses em ordem cronológica. */
+export function sortInvoices(invoices) {
+  return [...invoices].sort((a, b) => (Number(a.year) - Number(b.year)) || (MONTHS.indexOf(a.month) - MONTHS.indexOf(b.month)));
+}
+
 export function whatsappMessage({ owner, invoice, person, status, dueDate }) {
   const money = brl, first = owner.split("/")[0];
   const deadline = new Date(dueDate.getTime() - 864e5).toLocaleDateString("pt-BR");
