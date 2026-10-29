@@ -1,5 +1,5 @@
 // Ponto de entrada: carrega os dados, desenha o topo e despacha as ações das telas.
-import { allocations, assignOwners, isFee, isLateFee, plain, sortInvoices } from "./finance.js";
+import { allocations, assignOwners, isFee, isLateFee, plain, settleOffsets, sortInvoices } from "./finance.js";
 import { commit, connect, load, loadPdfList, store, uploadPdf } from "./store.js";
 import { $, $$, app, canEdit, esc, month, toast } from "./ui.js";
 import { filters, isSplitMode, recentlyAssigned, renderFuturo, renderHistorico, renderIdentificar, renderLancamentos, renderMes, renderPessoa, renderPessoas, toggleSplit } from "./views.js";
@@ -68,6 +68,13 @@ const actions = {
     const owners = who === "*" ? m.owners : [who];
     m.transactions.filter(tx => test(tx) && !allocations(tx).length).forEach(tx => { assignOwners(tx, owners); recentlyAssigned.add(tx.id); });
     commit(); toast(who === "*" ? "Dividido entre quem tem compras no mês" : `Tudo para ${who}`);
+  },
+  offsets: () => {
+    const m = month(), before = new Set(m.transactions.filter(t => !allocations(t).length).map(t => t.id));
+    const n = settleOffsets(m.transactions);
+    m.transactions.filter(t => before.has(t.id) && allocations(t).length).forEach(t => recentlyAssigned.add(t.id));
+    if (n) commit();
+    toast(n ? `${n} par(es) ajustado(s): cobrança e estorno com o mesmo dono` : "Nada para ajustar");
   },
   rule: id => {
     const tx = month().transactions.find(t => t.id === Number(id));

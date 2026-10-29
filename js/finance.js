@@ -57,6 +57,39 @@ export function assignOwners(tx, owners) {
   return tx;
 }
 
+/**
+ * Cobrança e estorno/desconto do mesmo valor (ex.: ANUIDADE 9,90 e DESCONTO PROGRESSIVO ANUIDADE −9,90).
+ * Os dois se anulam; devem ficar com o mesmo dono para ninguém pagar a cobrança sem receber o desconto.
+ */
+export function offsetPairs(transactions) {
+  const words = tx => new Set(plain(tx.merchant).split(" ").filter(w => w.length >= 5 && !/^\d+$/.test(w)));
+  const used = new Set(), pairs = [];
+  for (const credit of transactions.filter(t => num(t.amount) < 0)) {
+    const mine = words(credit);
+    const charge = transactions.find(t => num(t.amount) > 0 && !used.has(t) && Math.abs(num(t.amount) + num(credit.amount)) < 0.005
+      && (plain(t.merchant) === plain(credit.merchant) || [...words(t)].some(w => mine.has(w))));
+    if (charge) { used.add(charge); pairs.push({ charge, credit }); }
+  }
+  return pairs;
+}
+
+const describeNote = tx => tx.note && !/Importado do PDF|identificar respons|revisar descri/i.test(tx.note) ? tx.note : "";
+
+/** Dá o mesmo dono ao par que se anula (o da cobrança; senão o do estorno; senão quem paga o cartão). */
+export function settleOffsets(transactions) {
+  let changed = 0;
+  for (const { charge, credit } of offsetPairs(transactions)) {
+    const a = allocations(charge).map(x => x.owner), b = allocations(credit).map(x => x.owner);
+    if (a.length && a.join() === b.join()) continue;
+    const owners = a.length ? a : b.length ? b : [CARD_PAYER];
+    assignOwners(charge, owners); assignOwners(credit, owners);
+    if (!describeNote(credit)) credit.note = `estorno/desconto de ${charge.merchant}: se anulam`;
+    if (!describeNote(charge)) charge.note = `anulado por ${credit.merchant}`;
+    changed++;
+  }
+  return changed;
+}
+
 /** Totais por pessoa no mês. pay = valor que a pessoa efetivamente paga neste mês. */
 export function ownerTotals(transactions, owners) {
   const totals = Object.fromEntries(owners.map(o => [o, { total: 0, due: 0, pending: 0, covers: 0, collect: 0, count: 0, items: [] }]));

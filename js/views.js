@@ -1,5 +1,5 @@
 // Telas do painel. Cada função desenha em #view; as ações usam data-action (tratadas em main.js).
-import { allocations, brl, compareMonths, installment, isFee, isLateFee, monthOffsetLabel, ownerTotals, plain, projection, sortInvoices, splitCents, suggestOwners, historyTransactions, num, CARD_PAYER } from "./finance.js";
+import { allocations, brl, compareMonths, offsetPairs, installment, isFee, isLateFee, monthOffsetLabel, ownerTotals, plain, projection, sortInvoices, splitCents, suggestOwners, historyTransactions, num, CARD_PAYER } from "./finance.js";
 import { pdfs, pdfUrl, store } from "./store.js";
 import { $, app, avatar, canEdit, color, daysUntil, describe, esc, first, month, PILL } from "./ui.js";
 
@@ -93,14 +93,17 @@ function personCard(o, p, s) {
 const splitMode = new Set();
 export const recentlyAssigned = new Set();
 const GROUPS = [
-  ["late", "Multa e juros por atraso", tx => isLateFee(tx), "Custo de pagar a fatura anterior com atraso. Decida quem arca."],
-  ["fees", "Tarifas do cartão", tx => isFee(tx) && !isLateFee(tx), `Anuidade, seguros e descontos. Normalmente da ${CARD_PAYER}.`],
-  ["cont", "Parcelas que continuam", tx => !isFee(tx) && installment(tx.installment)?.current > 1, "A primeira parcela ficou sem dono. Definindo agora, as próximas entram sozinhas."],
-  ["new", "Compras novas", tx => !isFee(tx) && !(installment(tx.installment)?.current > 1), "Primeira parcela ou compra à vista."],
+  ["offset", "Cobranças que se anulam", tx => offsetIds.has(tx.id), "Cobrança e estorno/desconto do mesmo valor (ex.: anuidade 9,90 e −9,90). Somam R$ 0,00 e ficam com o mesmo dono."],
+  ["late", "Multa e juros por atraso", tx => isLateFee(tx) && !offsetIds.has(tx.id), "Custo de pagar a fatura anterior com atraso. Decida quem arca."],
+  ["fees", "Tarifas do cartão", tx => isFee(tx) && !isLateFee(tx) && !offsetIds.has(tx.id), `Anuidade, seguros e descontos. Normalmente da ${CARD_PAYER}.`],
+  ["cont", "Parcelas que continuam", tx => !isFee(tx) && !offsetIds.has(tx.id) && installment(tx.installment)?.current > 1, "A primeira parcela ficou sem dono. Definindo agora, as próximas entram sozinhas."],
+  ["new", "Compras novas", tx => !isFee(tx) && !offsetIds.has(tx.id) && !(installment(tx.installment)?.current > 1), "Primeira parcela ou compra à vista."],
 ];
 
+let offsetIds = new Set();
 export function renderIdentificar() {
   const m = month(), { totals, transactions: list } = m, state = store.state;
+  offsetIds = new Set(offsetPairs(list).flatMap(p => [p.charge.id, p.credit.id]));
   const history = historyTransactions(state, app.monthId);
   const pending = list.filter(tx => !allocations(tx).length || recentlyAssigned.has(tx.id));
   const done = list.length - totals.unknownCount;
@@ -115,6 +118,7 @@ export function renderIdentificar() {
     if (!group.length) return "";
     const open = group.filter(tx => !allocations(tx).length), sum = group.reduce((s, tx) => s + num(tx.amount), 0);
     return `<div class="group-h"><div><h3>${title} · ${money(sum)}</h3><div class="sub">${hint}</div></div>
+      ${open.length && id === "offset" && canEdit() ? '<div class="bulk"><button class="btn" data-action="offsets">Juntar os pares</button></div>' : ""}
       ${open.length && (id === "fees" || id === "late") && canEdit() ? `<div class="bulk"><button class="btn" data-action="bulk" data-arg="${id}|${CARD_PAYER}">Tudo para ${CARD_PAYER}</button>${id === "late" ? `<button class="btn" data-action="bulk" data-arg="${id}|*">Dividir entre todos</button>` : ""}</div>` : ""}</div>
       ${group.map(tx => txCard(tx, suggestOwners(tx, history, state.owners, state.rules))).join("")}`;
   }).join("")}`);

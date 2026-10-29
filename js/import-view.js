@@ -1,5 +1,5 @@
 // Importação da fatura em PDF: leitura, revisão e criação do novo mês.
-import { archiveActive, brl, MONTHS, num, plain, resetMonthlyState, round2, splitCents, suggestOwners, defaultPayTo } from "./finance.js";
+import { archiveActive, settleOffsets, brl, MONTHS, num, plain, resetMonthlyState, round2, splitCents, suggestOwners, defaultPayTo } from "./finance.js";
 import { readInvoicePdf } from "./pdf-import.js";
 import { commit, store, uploadPdf } from "./store.js";
 import { $, $$, app, canEdit, esc, toast } from "./ui.js";
@@ -108,6 +108,7 @@ function confirmImport() {
     if (total) existing.total = total;
     Object.assign(existing, { availableLimit, nextInstallments, dueDate });
     state.transactions.push(...buildTransactions(chosen, existing.id, nextId));
+    settleOffsets(state.transactions);
     existing.transactions = structuredClone(state.transactions);
     commit();
     return finish(existing.id, chosen.length ? "identificar" : "historico", chosen.length ? `${chosen.length} lançamentos acrescentados` : "Os lançamentos já estavam no painel");
@@ -121,6 +122,7 @@ function confirmImport() {
     const invoice = existing || { id: `${month.toLowerCase()}-${year}-${Date.now()}`, month, year, total, file: file.name, status: "Histórico" };
     if (!existing) state.invoices.push(invoice);
     Object.assign(invoice, { total: total || invoice.total, file: file.name, detail: "Fatura antiga guardada para conferência", legacy: !all.some(r => r.owners.length), transactions: buildTransactions(all, invoice.id, nextId) });
+    if (!invoice.legacy) settleOffsets(invoice.transactions);
     commit();
     return finish(invoice.id, "mes", `${month}/${year} guardada no histórico com ${all.length} lançamentos`);
   }
@@ -130,6 +132,7 @@ function confirmImport() {
   const invoice = { id: `${month.toLowerCase()}-${year}-${Date.now()}`, month, year, total, file: file.name, detail: "PDF analisado e lançamentos importados", hasBlob: false, status: "Classificada", availableLimit, nextInstallments, dueDate };
   state.invoices.push(invoice);
   state.transactions = buildTransactions(chosen, invoice.id, nextId);
+  settleOffsets(state.transactions);
   state.activeInvoiceId = invoice.id;
   resetMonthlyState(state);
   invoice.transactions = structuredClone(state.transactions);

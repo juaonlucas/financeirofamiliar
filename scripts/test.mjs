@@ -1,4 +1,4 @@
-import { allocations, archiveActive, assignOwners, ownerTotals, paymentStatus, personScope, projection, splitCents, suggestOwners } from "../js/finance.js";
+import { allocations, archiveActive, assignOwners, offsetPairs, ownerTotals, paymentStatus, personScope, projection, settleOffsets, splitCents, suggestOwners } from "../js/finance.js";
 
 const close = (actual, expected, label) => {
   if (Math.abs(actual - expected) > 0.009) throw new Error(`${label}: esperado ${expected}, recebido ${actual}`);
@@ -71,6 +71,21 @@ ok(scoped.owners.length === 1 && scoped.transactions.length === 1, "Link pessoal
 ok(scoped.transactions[0].shares.length === 1 && scoped.transactions[0].shares[0].owner === "Aianny", "Esconde as partes de outras pessoas");
 ok(!scoped.profiles.Aianny.token && !JSON.stringify(scoped).includes("segredo"), "Não vaza o token");
 ok(scoped.invoices.find(i => i.id === "out").transactions.length === 0 && !scoped.invoices[0].settlementState.Wedja, "Histórico filtrado");
+
+// Cobrança e estorno do mesmo valor ficam com o mesmo dono (somam zero)
+const fees = [
+  tx(30, "ANUIDADE DIFERENCIADA", "08/12", 9.9, { owner: "Rosa" }),
+  tx(31, "DESCONTO PROGRESSIVO ANUIDADE", "", -9.9),
+  tx(32, "SEGURO CARTAO PROTEGIDO C", "", 5.9),
+  tx(33, "SEGURO CARTAO PROTEGIDO C", "", -5.9),
+  tx(34, "SEGURO CARTAO PROTEGIDO E", "", 15.9),
+  tx(35, "ESTORNO LOJA X", "", -20),
+];
+ok(offsetPairs(fees).length === 2, "Encontra os dois pares que se anulam");
+ok(settleOffsets(fees) === 2, "Ajusta os dois pares");
+ok(fees[1].owner === "Rosa" && fees[2].owner === "Rosa" && fees[3].owner === "Rosa", "Desconto segue a anuidade; seguro sem dono vai para Rosa");
+ok(!allocations(fees[4]).length && !allocations(fees[5]).length, "Cobrança ou estorno sem par continuam sem dono");
+close(ownerTotals(fees, owners).people.Rosa.total, 0, "Pares somam zero para a Rosa");
 
 // Arquivamento do mês
 archiveActive(state);
