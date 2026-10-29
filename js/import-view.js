@@ -1,5 +1,5 @@
 // Importação da fatura em PDF: leitura, revisão e criação do novo mês.
-import { allocations, archiveActive, brl, MONTHS, num, plain, resetMonthlyState, round2, splitCents, suggestOwners, defaultPayTo } from "./finance.js";
+import { archiveActive, brl, MONTHS, num, plain, resetMonthlyState, round2, splitCents, suggestOwners, defaultPayTo } from "./finance.js";
 import { readInvoicePdf } from "./pdf-import.js";
 import { commit, store, uploadPdf } from "./store.js";
 import { $, $$, app, canEdit, esc, toast } from "./ui.js";
@@ -49,7 +49,7 @@ async function analyze(file) {
 
 function drawReview() {
   const { summary, rows } = review, owners = store.state.owners;
-  const selected = rows.filter(r => r.selected), sum = round2(selected.reduce((s, r) => s + r.amount, 0));
+  const selected = rows.filter(r => r.selected), sum = round2(rows.filter(r => r.selected || r.duplicate).reduce((s, r) => s + r.amount, 0));
   const target = summary.nationalTotal || summary.invoiceTotal, diff = round2(target - sum);
   const auto = selected.filter(r => r.owners.length).length;
   $("#review").innerHTML = `
@@ -57,7 +57,7 @@ function drawReview() {
     <div class="f3"><label>Mês<select id="rMonth">${MONTHS.map(m => `<option ${m === summary.month ? "selected" : ""}>${m}</option>`).join("")}</select></label>
       <label>Ano<input id="rYear" type="number" value="${summary.year || new Date().getFullYear()}"></label>
       <label>Total da fatura<input id="rTotal" type="number" step="0.01" value="${summary.invoiceTotal || ""}"></label></div>
-    <div class="recon"><span>Lançamentos selecionados<strong>${brl(sum)}</strong></span><span>Total da fatura<strong>${target ? brl(target) : "não encontrado"}</strong></span><span class="${Math.abs(diff) < 0.02 ? "ok" : "bad"}">Diferença<strong>${target ? brl(diff) : "—"}</strong></span><span>Já com dono<strong>${auto} de ${selected.length}</strong></span></div>
+    <div class="recon"><span>Lançamentos lidos<strong>${brl(sum)}</strong></span><span>Total da fatura<strong>${target ? brl(target) : "não encontrado"}</strong></span><span class="${Math.abs(diff) < 0.02 ? "ok" : "bad"}">Diferença<strong>${target ? brl(diff) : "—"}</strong></span><span>Já com dono<strong>${auto} de ${selected.length}</strong></span></div>
     ${summary.nextInstallments ? `<p class="sub">A próxima fatura já começa com ${brl(summary.nextInstallments)} em parcelas.${summary.availableLimit !== null ? ` Limite disponível: ${brl(summary.availableLimit)}.` : ""}</p>` : ""}
   </section>
   <div class="txlist top-gap">${rows.map(r => `
@@ -69,45 +69,70 @@ function drawReview() {
       <select data-own="${r.index}" ${r.duplicate ? "disabled" : ""}><option value="">Sem dono</option>${owners.map(o => `<option ${r.owners.length === 1 && r.owners[0] === o ? "selected" : ""}>${esc(o)}</option>`).join("")}${r.owners.length > 1 ? `<option selected value="${esc(r.owners.join("|"))}">${esc(r.owners.join(" + "))}</option>` : ""}</select>
       <div class="money strong">${brl(r.amount)}</div>
     </div>`).join("")}</div>
-  <div class="dlg-actions top-gap"><button class="btn" id="rCancel">Cancelar</button><span class="grow"></span><button class="btn primary" id="rConfirm">Importar ${selected.filter(r => !r.duplicate).length} lançamentos</button></div>`;
+  <div class="dlg-actions top-gap"><button class="btn" id="rCancel">Cancelar</button><span class="grow"></span><button class="btn primary" id="rConfirm">${selected.filter(r => !r.duplicate).length ? `Importar ${selected.filter(r => !r.duplicate).length} lançamentos` : "Guardar o PDF"}</button></div>`;
   $$("[data-sel]").forEach(c => c.onchange = () => { rows[c.dataset.sel].selected = c.checked; drawReview(); });
   $$("[data-own]").forEach(s => s.onchange = () => { const r = rows[s.dataset.own]; r.owners = s.value ? s.value.split("|") : []; r.source = s.value ? "manual" : ""; });
   $("#rCancel").onclick = () => { review = null; renderImportar(); };
   $("#rConfirm").onclick = confirmImport;
 }
 
-function confirmImport() {
-  const state = store.state, month = $("#rMonth").value, year = Number($("#rYear").value), total = num($("#rTotal").value);
-  const chosen = review.rows.filter(r => r.selected && !r.duplicate);
-  if (!chosen.length) return toast("Nada selecionado para importar.");
-  const existing = state.invoices.find(i => i.month === month && Number(i.year) === year);
-  if (existing && existing.id !== state.activeInvoiceId) return toast(`${month}/${year} já está no histórico do painel.`);
-  let invoice = existing;
-  if (!invoice) {
-    archiveActive(state);
-    invoice = { id: `${month.toLowerCase()}-${year}-${Date.now()}`, month, year, total, file: review.file.name, detail: "PDF analisado e lançamentos importados", hasBlob: false, status: "Classificada" };
-    state.invoices.push(invoice);
-    state.transactions = [];
-    state.activeInvoiceId = invoice.id;
-    resetMonthlyState(state);
-  } else if (total) invoice.total = total;
-  const { availableLimit, nextInstallments, dueDate } = review.summary;
-  Object.assign(invoice, { availableLimit, nextInstallments, dueDate });
-  let nextId = Math.max(0, ...[...state.transactions, ...state.invoices.flatMap(i => i.transactions || [])].map(t => Number(t.id) || 0)) + 1;
-  for (const r of chosen) {
-    const tx = { id: nextId++, invoiceId: invoice.id, date: r.date, merchant: r.merchant, location: r.location, installment: r.installment, amount: r.amount, owner: "", note: r.note || "", dueNow: r.amount, payTo: "", variationNote: "", agreement: null, shares: [] };
+function buildTransactions(rows, invoiceId, nextId) {
+  return rows.map(r => {
+    const tx = { id: nextId++, invoiceId, date: r.date, merchant: r.merchant, location: r.location, installment: r.installment, amount: r.amount, owner: "", note: r.note || "", dueNow: r.amount, payTo: "", variationNote: "", agreement: null, shares: [] };
     if (r.owners.length === 1) Object.assign(tx, { owner: r.owners[0], payTo: defaultPayTo(r.owners[0]) });
     else if (r.owners.length > 1) {
       const values = splitCents(r.amount, r.owners.length);
       Object.assign(tx, { owner: r.owners.join(" e "), shares: r.owners.map((o, i) => ({ owner: o, amount: values[i], dueNow: values[i], payTo: defaultPayTo(o), variationNote: "" })) });
     }
-    state.transactions.push(tx);
+    return tx;
+  });
+}
+
+const monthIndex = (month, year) => Number(year) * 12 + MONTHS.indexOf(month);
+
+function savePdf(invoiceId, file) {
+  uploadPdf(invoiceId, file).then(() => toast("PDF da fatura guardado no painel")).catch(e => toast(`PDF não guardado: ${e.message}`));
+}
+
+function confirmImport() {
+  const state = store.state, month = $("#rMonth").value, year = Number($("#rYear").value), total = num($("#rTotal").value);
+  const chosen = review.rows.filter(r => r.selected && !r.duplicate), file = review.file;
+  const { availableLimit, nextInstallments, dueDate } = review.summary;
+  const active = state.invoices.find(i => i.id === state.activeInvoiceId);
+  const existing = state.invoices.find(i => i.month === month && Number(i.year) === year);
+  const nextId = Math.max(0, ...[...state.transactions, ...state.invoices.flatMap(i => i.transactions || [])].map(t => Number(t.id) || 0)) + 1;
+  const finish = (invoiceId, hash, message) => { if (message) toast(message); savePdf(invoiceId, file); review = null; app.monthId = invoiceId; location.hash = hash; };
+
+  // Mês em evidência: completa o que faltar e guarda o PDF.
+  if (existing && existing.id === state.activeInvoiceId) {
+    if (total) existing.total = total;
+    Object.assign(existing, { availableLimit, nextInstallments, dueDate });
+    state.transactions.push(...buildTransactions(chosen, existing.id, nextId));
+    existing.transactions = structuredClone(state.transactions);
+    commit();
+    return finish(existing.id, chosen.length ? "identificar" : "historico", chosen.length ? `${chosen.length} lançamentos acrescentados` : "Os lançamentos já estavam no painel");
   }
+  // Mês do histórico que já tem lançamentos: só guarda o PDF para conferência.
+  if (existing?.transactions?.length) return finish(existing.id, "historico", `${month}/${year} já tem lançamentos no histórico`);
+  const all = review.rows.filter(r => r.selected);
+  const older = active && monthIndex(month, year) < monthIndex(active.month, active.year);
+  // Fatura antiga (só tinha o total, ou nem existia): entra no histórico para comparação, sem mudar o mês em evidência.
+  if (existing || older) {
+    const invoice = existing || { id: `${month.toLowerCase()}-${year}-${Date.now()}`, month, year, total, file: file.name, status: "Histórico" };
+    if (!existing) state.invoices.push(invoice);
+    Object.assign(invoice, { total: total || invoice.total, file: file.name, detail: "Fatura antiga guardada para conferência", legacy: !all.some(r => r.owners.length), transactions: buildTransactions(all, invoice.id, nextId) });
+    commit();
+    return finish(invoice.id, "mes", `${month}/${year} guardada no histórico com ${all.length} lançamentos`);
+  }
+  // Mês novo: o atual vai para o histórico e o novo fica em evidência.
+  if (!chosen.length) return toast("Nada selecionado para importar.");
+  archiveActive(state);
+  const invoice = { id: `${month.toLowerCase()}-${year}-${Date.now()}`, month, year, total, file: file.name, detail: "PDF analisado e lançamentos importados", hasBlob: false, status: "Classificada", availableLimit, nextInstallments, dueDate };
+  state.invoices.push(invoice);
+  state.transactions = buildTransactions(chosen, invoice.id, nextId);
+  state.activeInvoiceId = invoice.id;
+  resetMonthlyState(state);
   invoice.transactions = structuredClone(state.transactions);
   commit();
-  toast(`${chosen.length} lançamentos importados · ${chosen.filter(r => allocations(r).length || r.owners.length).length} já com dono`);
-  uploadPdf(invoice.id, review.file).then(() => toast("PDF da fatura guardado no painel")).catch(e => toast(`PDF não guardado: ${e.message}`));
-  review = null;
-  app.monthId = invoice.id;
-  location.hash = "identificar";
+  finish(invoice.id, "identificar", `${chosen.length} lançamentos importados · ${chosen.filter(r => r.owners.length).length} já com dono`);
 }
