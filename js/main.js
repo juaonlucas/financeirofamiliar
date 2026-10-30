@@ -13,7 +13,9 @@ function route() {
   if (store.mode === "locked") return renderLocked();
   const state = store.state;
   if (!state.invoices.some(i => i.id === app.monthId)) app.monthId = state.activeInvoiceId;
-  let [name, arg] = decodeURIComponent(location.hash.slice(1) || "mes").split("/");
+  // Separa antes de decodificar: nomes como "Ju/Wellington" vêm com a barra codificada (%2F).
+  const [rawName, ...rest] = (location.hash.slice(1) || "mes").split("/");
+  let name = decodeURIComponent(rawName), arg = decodeURIComponent(rest.join("/"));
   if (store.mode === "person") { name = "pessoa"; arg = store.owner; }
   if (name !== "identificar") recentlyAssigned.clear();
   renderTop(name);
